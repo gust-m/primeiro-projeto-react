@@ -1,57 +1,91 @@
-import React from 'react';
-import { Title, Form, Repositories } from './styles';
+import React, { FormEvent, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Title, Form, Repositories, Error } from './styles';
 import { FiChevronRight } from 'react-icons/fi';
+import api from '../../services/api';
 
 import logoImg from '../../assets/logo-image.svg';
 
+interface Repository {
+  full_name: string;
+  description: string;
+  owner: {
+    login: string;
+    avatar_url: string;
+  }
+}
+
 const Dashboard: React.FC = () => {
+  const [newRepo, setNewRepo] = useState('');
+  const [inputError, setInputError] = useState('');
+  const [repositories, setRepositories] = useState<Repository[]>(() => {
+    const storagedRepositories = localStorage.getItem('@GithubExplorer:repositories');
+
+    if (storagedRepositories) {
+      return JSON.parse(storagedRepositories);
+    } else {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(
+      '@GithubExplorer:repositories',
+      JSON.stringify(repositories),
+    )
+  }, [repositories]);
+
+  async function handleAddRepository(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+
+    if (!newRepo) {
+      setInputError('Type the author/name of the repository')
+      return;
+    }
+
+    try{
+      const response = await api.get<Repository>(`repos/${newRepo}`);
+
+      const repository = response.data;
+
+      setRepositories([...repositories, repository]);
+      setNewRepo('');
+      setInputError('');
+    }catch {
+      setInputError('No author/repository found');
+    }
+  }
   return (
     <>
     <img src={logoImg} alt="logo"/>
-    <Title>Explore repositorios no Github</Title>;
+    <Title>Explore repositories on Github</Title>
 
-    <Form>
-      <input placeholder="Type the name of the repository"/>
+    <Form hasError={!!inputError} onSubmit={handleAddRepository}>
+      <input
+        value={newRepo}
+        onChange={(event) => setNewRepo(event.target.value)}
+        placeholder="Type the name of the repository"
+      />
       <button type="submit" >Search</button>
     </Form>
 
+    {inputError && <Error>{inputError}</Error>}
+
     <Repositories>
-      <a href="">
+      {repositories.map(repository => (
+        <Link key={repository.full_name} to={`/repository/${repository.full_name}`}>
         <img
-          src="https://pbs.twimg.com/profile_images/1293202325713100800/B9-b30wH.jpg"
-          alt="Branquitao"/>
+          src={repository.owner.avatar_url}
+          alt={repository.owner.login}/>
 
         <div>
-          <strong>rocketseat/unform</strong>
-          <p>Easy peasy higly scalable ReactJS form</p>
+          <strong>{repository.full_name}</strong>
+          <p>{repository.description}</p>
         </div>
 
         <FiChevronRight size={20} />
-      </a>
-      <a href="">
-        <img
-          src="https://pbs.twimg.com/profile_images/1293202325713100800/B9-b30wH.jpg"
-          alt="Branquitao"/>
-
-        <div>
-          <strong>rocketseat/unform</strong>
-          <p>Easy peasy higly scalable ReactJS form</p>
-        </div>
-
-        <FiChevronRight size={20} />
-      </a>
-      <a href="">
-        <img
-          src="https://pbs.twimg.com/profile_images/1293202325713100800/B9-b30wH.jpg"
-          alt="Branquitao"/>
-
-        <div>
-          <strong>rocketseat/unform</strong>
-          <p>Easy peasy higly scalable ReactJS form</p>
-        </div>
-
-        <FiChevronRight size={20} />
-      </a>
+        </Link>
+      ))}
     </Repositories>
     </>
   );
