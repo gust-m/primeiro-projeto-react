@@ -1,22 +1,56 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouteMatch, Link } from 'react-router-dom';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import logoImg from '../../assets/logo-image.svg';
 
 import { Header, RepositoryData, Issues } from './styles';
 
-// import api from '../../services/api';
+import api from '../../services/api';
 
 interface RepositoryParams {
   repository: string;
 }
 
+interface Repository {
+  full_name: string;
+  description: string;
+  stargazers_count: number;
+  forks_count: number;
+  open_issues_count: number;
+  owner: {
+    login: string;
+    avatar_url: string;
+  }
+}
+
+interface Issue {
+  id: number;
+  title: string;
+  html_url: string;
+  user: {
+    login: string;
+  }
+}
+
 const Repository: React.FC = () => {
+  const [currentRepository, setCurrentRepository] = useState<Repository | null>(null);
+  const [issues, setIssues] = useState<Issue[]>([]);
+
   const { params } = useRouteMatch<RepositoryParams>();
 
-  // useEffect(() => {
-  //   api.get(`repos/${params.repository}`);
-  // }, []);
+  useEffect(() => {
+    async function loadData(): Promise<void> {
+      const [repository, issues] = await Promise.all([
+        await api.get<Repository>(`repos/${params.repository}`),
+        await api.get<Issue[]>(`repos/${params.repository}/issues`),
+      ]);
+
+      setCurrentRepository(repository.data);
+      setIssues(issues.data);
+    }
+
+    loadData();
+  }, [params.repository]);
 
   return (
     <>
@@ -27,45 +61,50 @@ const Repository: React.FC = () => {
           Voltar
         </Link>
       </Header>
-      <RepositoryData>
-        <main>
-          <img src="https://i.pinimg.com/564x/4c/01/5a/4c015a650d1ed9da7300690a6b0ff3e7.jpg" alt=""/>
 
-          <div>
-            <strong>Nome do repositorio</strong>
-            <p>Descricao</p>
-          </div>
-        </main>
+      {currentRepository && (
+        <RepositoryData>
+          <main>
+            <img src={currentRepository.owner.avatar_url} alt={currentRepository.owner.login}/>
 
-        <ul>
-          <li>
-            <strong>1808</strong>
-            <span>Stars</span>
-          </li>
-          <li>
-            <strong>48</strong>
-            <span>Forks</span>
-          </li>
-          <li>
-            <strong>67</strong>
-            <span>Issues abertas</span>
-          </li>
-        </ul>
+            <div>
+              <strong>{currentRepository.full_name}</strong>
+              <p>{currentRepository.description}</p>
+            </div>
+          </main>
+
+          <ul>
+            <li>
+              <strong>{currentRepository.stargazers_count}</strong>
+              <span>Stars</span>
+            </li>
+            <li>
+              <strong>{currentRepository.forks_count}</strong>
+              <span>Forks</span>
+            </li>
+            <li>
+              <strong>{currentRepository.open_issues_count}</strong>
+              <span>Issues abertas</span>
+            </li>
+          </ul>
       </RepositoryData>
+      )}
 
       <Issues>
-        <Link
-          key='repository.full_name'
-          to={`/repository/repository.full_name`}
-        >
+        {issues.map(issue => (
+          <a
+            key={issue.id}
+            href={issue.html_url}
+          >
 
-        <div>
-          <strong>repository.full_name</strong>
-          <p>repository.description</p>
-        </div>
+            <div>
+              <strong>{issue.title}</strong>
+              <p>{issue.user.login}</p>
+            </div>
 
-        <FiChevronRight size={20} />
-        </Link>
+            <FiChevronRight size={20} />
+          </a>
+        ))}
       </Issues>
     </>
   );
